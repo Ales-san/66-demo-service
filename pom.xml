@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -13,11 +14,11 @@
     <groupId>com.itmo.microservices</groupId>
     <artifactId>demo-service</artifactId>
     <version>0.1.1-SNAPSHOT</version>
-    <name>demo-service</name>
+    <name>66-demo-service</name>
     <description>Demo project for microservices course 21-22</description>
 
     <properties>
-        <github>microservices-itmo-21-22/demo-service</github>
+        <github>Ales-san/66-demo-service</github>
         <java.version>11</java.version>
         <kotlin.version>1.6.10</kotlin.version>
         <guava.version>30.1.1-jre</guava.version>
@@ -27,7 +28,7 @@
         <buildnumber-maven-plugin.version>1.4</buildnumber-maven-plugin.version>
         <jib-maven-plugin.version>2.8.0</jib-maven-plugin.version>
     </properties>
-         
+
     <dependencies>
         <dependency>
             <groupId>com.itmo.microservices</groupId>
@@ -99,6 +100,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-kotlin</artifactId>
+
         </dependency>
 
         <dependency>
@@ -123,8 +125,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-    </dependencies>
 
+        <dependency>
+            <groupId>ru.quipy</groupId>
+            <artifactId>tiny-event-sourcing-lib</artifactId>
+            <version>2.0.1-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
     <scm>
         <connection>scm:git:https://github.com/${github}.git</connection>
         <developerConnection>scm:git:https://github.com/${github}.git</developerConnection>
