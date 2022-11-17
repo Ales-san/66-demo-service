@@ -59,8 +59,14 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
     }
 
     @StateTransitionFunc
-    fun deleteNewItem(itemDeletedEvent: ItemDeletedEvent) {
-        items.remove(itemDeletedEvent.itemId)
+    fun deleteItem(event: ItemDeletedEvent) {
+        items.remove(event.itemId)
+        for ((orderId, order) in orders) {
+            if (order.orderCart.containsKey(event.itemId)) {
+                order.orderCart.remove(event.itemId)
+                // TODO: notification
+            }
+        }
     }
 
     @StateTransitionFunc

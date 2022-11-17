@@ -7,10 +7,10 @@ data class TimeSlot (
     var endDate: LocalDate
     ) {
 
-    fun TimeSlot (startDate: LocalDate, endDate: LocalDate) {
-        this.startDate = startDate;
-        this.endDate = endDate;
-    }
+//    constructor(startDate: LocalDate, endDate: LocalDate) {
+//        this.startDate = startDate;
+//        this.endDate = endDate;
+//    }
 
     fun updateStartDate (date: LocalDate) {
         startDate = date;
