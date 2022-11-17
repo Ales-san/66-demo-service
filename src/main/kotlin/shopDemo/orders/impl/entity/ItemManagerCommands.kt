@@ -76,9 +76,12 @@ fun ItemManager.notifyAbandonedCart(time: Int, orderId: UUID): CartAbandonedNoti
     return CartAbandonedNotifyEvent(orderId)
 }
 
+// -------------------OrderItems-------------------------
 fun ItemManager.addItemToOrder(itemId: UUID, orderId: UUID): OrderItemAddedEvent {
     checkOrderIdExistsThrowable(orderId)
     checkItemIdExistsThrowable(itemId)
+    if (orders[orderId]?.orderCart?.containsKey(itemId) == true)
+        setAmountInCart(itemId, orders[orderId]?.orderCart!![itemId]!! + 1, orderId)
     return OrderItemAddedEvent(itemId, orderId)
 }
 
@@ -94,6 +97,8 @@ fun ItemManager.deleteItemFromOrder(itemId: UUID, orderId: UUID): OrderItemDelet
 fun ItemManager.setAmountInCart(itemId: UUID, newAmount: Int, orderId: UUID): OrderItemAmountChangedEvent {
     checkOrderIdExistsThrowable(orderId)
     checkItemIdExistsThrowable(itemId)
+    if (orders[orderId]?.orderCart?.containsKey(itemId) != true)
+        throw IllegalStateException("Can't delete item with id $itemId from order with id $orderId, because item is not in the cart")
 
     return OrderItemAmountChangedEvent(itemId, newAmount, orderId)
 }
