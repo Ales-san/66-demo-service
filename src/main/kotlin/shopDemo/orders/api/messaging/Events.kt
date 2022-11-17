@@ -1,12 +1,13 @@
 @file:Suppress("unused")
 
-package shopDemo.api
+package shopDemo.orders.api
 
 import ru.quipy.core.annotations.DomainEvent
 import ru.quipy.domain.Event
-import shopDemo.logic.OrderRow
-import shopDemo.logic.OrderState
-import shopDemo.logic.PaymentMethod
+import shopDemo.orders.impl.entity.ItemManagerAggregate
+import shopDemo.orders.impl.entity.OrderRow
+import shopDemo.orders.impl.entity.OrderState
+import shopDemo.orders.impl.entity.PaymentMethod
 import java.util.*
 
 const val ORDER_CREATED = "ORDER_CREATED_EVENT"
@@ -21,7 +22,7 @@ class OrderCreatedEvent(
     val orderId: UUID,
     val userId: UUID,
     val orderRows: List<OrderRow>
-) : Event<OrderAggregate>(
+) : Event<ItemManagerAggregate>(
     name = ORDER_CREATED,
     createdAt = System.currentTimeMillis(),
 )
@@ -30,7 +31,7 @@ class OrderCreatedEvent(
 class OrderStateChangedEvent(
     val orderId: UUID,
     val newState: OrderState
-) : Event<OrderAggregate>(
+) : Event<ItemManagerAggregate>(
     name = ORDER_STATE_CHANGED,
     createdAt = System.currentTimeMillis(),
 )
@@ -39,7 +40,7 @@ class OrderStateChangedEvent(
 class DeliveryAddressAddedEvent(
     val orderId: UUID,
     val address: String
-) : Event<OrderAggregate>(
+) : Event<ItemManagerAggregate>(
     name = DELIVERY_ADDRESS_ADDED,
     createdAt = System.currentTimeMillis(),
 )
@@ -48,7 +49,7 @@ class DeliveryAddressAddedEvent(
 class DeliveryDateAddedEvent(
     val orderId: UUID,
     val date: Date
-) : Event<OrderAggregate>(
+) : Event<ItemManagerAggregate>(
     name = DELIVERY_DATE_ADDED,
     createdAt = System.currentTimeMillis(),
 )
@@ -57,7 +58,7 @@ class DeliveryDateAddedEvent(
 class PaymentMethodAddedEvent(
     val orderId: UUID,
     val paymentMethod: PaymentMethod
-) : Event<OrderAggregate>(
+) : Event<ItemManagerAggregate>(
     name = PAYMENT_METHOD_ADDED,
     createdAt = System.currentTimeMillis(),
 )

@@ -1,25 +1,18 @@
 @file:Suppress("unused")
 
-package shopDemo.logic
+package shopDemo.orders.impl.entity
 
 import ru.quipy.core.annotations.StateTransitionFunc
 import ru.quipy.domain.AggregateState
-import shopDemo.api.*
+import shopDemo.orders.api.*
+import shopDemo.orders.api.model.OrderRow
+import shopDemo.orders.api.model.OrderState
 import java.util.*
 
-class Order : AggregateState<UUID, OrderAggregate> {
-    private lateinit var orderId: UUID
-    private lateinit var userId: UUID
-    private var creationTime: Long = System.currentTimeMillis()
-    private var state: OrderState? = null
-
-    private var deliveryAddress: String? = null
-    private var paymentMethod: PaymentMethod? = null
-    private var deliveryDate: Date? = null
-
-    private var orderRows: Map<UUID, OrderRow> = mapOf()
-
-    override fun getId(): UUID = orderId
+class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
+    private lateinit var itemManagerId: UUID;
+    override fun getId(): UUID = itemManagerId
+    private lateinit var orders: Map<UUID, Order>;
 
     fun createNewOrder(id: UUID = UUID.randomUUID(), userId: UUID, products: Map<UUID, Int>): OrderCreatedEvent {
         if (state != null)
@@ -123,12 +116,19 @@ class Order : AggregateState<UUID, OrderAggregate> {
 
 }
 
-enum class OrderState {
-    InProcess,
-    Processed,
-    Paid,
-    Delivered,
-    Discarded
+class Order {
+    private lateinit var orderId: UUID
+    private lateinit var userId: UUID
+    private var creationTime: Long = System.currentTimeMillis()
+    private var state: OrderState? = null
+
+    private var deliveryAddress: String? = null
+    private var paymentMethod: PaymentMethod? = null
+    private var deliveryDate: Date? = null
+
+    private var orderRows: Map<UUID, OrderRow> = mapOf()
+
+    fun getId(): UUID = orderId
 }
 
 enum class PaymentMethod {
@@ -136,9 +136,5 @@ enum class PaymentMethod {
     Card
 }
 
-data class OrderRow(
-    val id: UUID,
-    val productId: UUID,
-    val productCount: Int,
-)
+
 
