@@ -15,9 +15,9 @@ import java.util.*
 
 class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
     private lateinit var itemManagerId: UUID
-    private lateinit var orders: Map<UUID, Order>
-    private lateinit var items: Map<UUID, Item>
-    private val creationTime = System.currentTimeMillis()
+    private var orders: MutableMap<UUID, Order> = mutableMapOf()
+    private var items: MutableMap<UUID, Item> = mutableMapOf()
+    private var updatedTime: Long //= System.currentTimeMillis()
 
     override fun getId(): UUID = itemManagerId
 
@@ -43,26 +43,11 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
             }
         )
     }
+    fun setOrderDeliveryTime(timeSlot: TimeSlot, orderId: UUID): OrderDeliveryTimeAddedEvent {
+        if (orders[orderId]?.state != OrderState.InProcess)
+            throw IllegalStateException("Order is ${orders[orderId]?.state}")
 
-    fun addDeliveryAddress(orderId: UUID, address: String): DeliveryAddressAddedEvent {
-        if (state != OrderState.InProcess)
-            throw IllegalStateException("Order is $state")
-
-        return DeliveryAddressAddedEvent(orderId, address)
-    }
-
-    fun addDeliveryDate(date: Date): DeliveryDateAddedEvent {
-        if (state != OrderState.InProcess)
-            throw IllegalStateException("Order is $state")
-
-        return DeliveryDateAddedEvent(orderId, date)
-    }
-
-    fun addPaymentMethod(paymentMethod: PaymentMethod): PaymentMethodAddedEvent {
-        if (state != OrderState.InProcess)
-            throw IllegalStateException("Order is $state")
-
-        return PaymentMethodAddedEvent(orderId, paymentMethod)
+        return OrderDeliveryTimeAddedEvent(orderId, timeSlot)
     }
 
     private fun getPossibleStates() = when (state) {
@@ -87,35 +72,60 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
         return OrderStateChangedEvent(orderId, newState)
     }
 
+    fun deleteOrder(orderId: UUID): OrderDeletedEvent {
+        if (!orders.containsKey(orderId))
+            throw ObjectAlreadyExistException("Can't delete order with id $orderId, because it doesn't exist")
+
+        return OrderDeletedEvent(orderId)
+    }
+
+    fun checkOrderStateCollected(OrderState state) {
+        if (state != OrderState.Collected)
+            throw IllegalStateException("Order is not in state ${orders[orderId]?.state}")
+    }
+    fun notifyAbandonedCart(time: Int, orderId: UUID): CartAbandonedNotifyEvent {
+        checkOrderStateCollected(orders[orderId]?.state)
+
+        // updateTime
+        if (orders[orderId]?.state != OrderState.Collected)
+            throw IllegalStateException("Can't notify about abandoned cart, because order is not in state ${orders[orderId]?.state}")
+
+        return CartAbandonedNotifyEvent(orderId)
+    }
+
+    fun addItemToOrder(itemId: UUID, orderId: UUID): OrderItemAddedEvent {
+        checkOrderStateCollected(orders[orderId]?.state)
+        return OrderItemAddedEvent(itemId, orderId)
+    }
+
+    fun deleteItemFromOrder(itemId: UUID, orderId: UUID): OrderItemDeletedEvent {
+        checkOrderStateCollected(orders[orderId]?.state)
+
+        if (orders[orderId]?.orderRows?.containsKey(itemId) != true)
+            throw IllegalStateException("Can't delete item with id $itemId from order with id $orderId, because item is not in the cart")
+
+        return OrderItemDeletedEvent(itemId, orderId)
+    }
+
+    fun setAmountInCart(itemId: UUID, newAmount: Int, orderId: UUID): OrderItemAmountChangedEvent {
+        checkOrderStateCollected(orders[orderId]?.state)
+        return OrderItemAmountChangedEvent(itemId, newAmount, orderId)
+    }
+
     @StateTransitionFunc
     fun createNewOrder(orderCreatedEvent: OrderCreatedEvent) {
-        orderId = orderCreatedEvent.orderId
-        userId = orderCreatedEvent.userId
-        creationTime = orderCreatedEvent.createdAt
-        state = OrderState.InProcess
-        orderRows = orderCreatedEvent.orderRows.associateBy { it.id }
+        with(orderCreatedEvent) {
+            orders.put(orderId, Order(orderId, userId, createdAt, orderRows))
+        }
     }
 
     @StateTransitionFunc
-    fun addDeliveryAddress(deliveryAddressAddedEvent: DeliveryAddressAddedEvent) {
-        deliveryAddress = deliveryAddressAddedEvent.address
-    }
-
-    @StateTransitionFunc
-    fun addDeliveryDate(deliveryDateAddedEvent: DeliveryDateAddedEvent) {
+    fun setOrderDeliveryTime(timeSlot: TimeSlot, orderId: UUID) {
+        with(OrderDeliveryTimeAddedEvent) {
+            orders.put(orderId, Order(orderId, userId, createdAt, orderRows))
+        }
         deliveryDate = deliveryDateAddedEvent.date
     }
-
-    @StateTransitionFunc
-    fun addPaymentMethod(paymentMethodAddedEvent: PaymentMethodAddedEvent) {
-        paymentMethod = paymentMethodAddedEvent.paymentMethod
-    }
-
-    @StateTransitionFunc
-    fun changeOrderState(orderStateChangedEvent: OrderStateChangedEvent) {
-        state = orderStateChangedEvent.newState
-    }
-
     override fun toString(): String {
         return "Order(\n" +
                 " orderId=$orderId,\n" +
@@ -132,19 +142,15 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
 
 }
 
-class Order(_orderId: UUID, _userId: UUID) {
+class Order(_orderId: UUID, _userId: UUID, _creationTime: Long, _orderRows: MutableMap<UUID, OrderRow>) {
     var orderId: UUID = _orderId
     var userId: UUID = _userId
-    var creationTime: Long = System.currentTimeMillis()
+    var creationTime: Long = _creationTime // System.currentTimeMillis()
     var state: OrderState? = null
+    var deliveryDate: TimeSlot? = null
+    var orderRows: MutableMap<UUID, OrderRow> = _orderRows
 
-    var deliveryAddress: String? = null
-    var paymentMethod: PaymentMethod? = null
-    var deliveryDate: Date? = null
-
-    var orderRows: Map<UUID, OrderRow> = mapOf()
-
-//    fun getId(): UUID = orderId
+    fun getId(): UUID = orderId
 }
 
 class Item(_itemId: UUID, _name: String, _price: BigDecimal, _description: String? = null, _amountInStock: Int = 0) {
@@ -163,11 +169,6 @@ class Item(_itemId: UUID, _name: String, _price: BigDecimal, _description: Strin
         }
 
 //    fun getId(): UUID = orderId
-}
-
-enum class PaymentMethod {
-    Cash,
-    Card
 }
 
 

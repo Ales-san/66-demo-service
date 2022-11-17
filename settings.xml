@@ -14,8 +14,8 @@
     <servers>
         <server>
             <id>github</id>
-            <username>${env.GITHUB_USERNAME}</username>
-            <password>${env.GITHUB_TOKEN}</password>
+            <username>sad-bkt</username>
+            <password>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</password>
         </server>
     </servers>
 
