@@ -49,6 +49,37 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
         orders[orderStateChangedEvent.orderId]?.state = orderStateChangedEvent.newState
     }
 
+    @StateTransitionFunc
+    fun deleteOrder(orderDeletedEvent: OrderDeletedEvent) {
+        orders.remove(orderDeletedEvent.orderId)
+    }
+
+    @StateTransitionFunc
+    fun notifyAbandonedCart(cartAbandonedNotifyEvent: CartAbandonedNotifyEvent) {
+        // do nothing
+    }
+
+    // -------------------OrderItems-------------------------
+
+    @StateTransitionFunc
+    fun addItemToOrder(orderItemAddedEvent: OrderItemAddedEvent) {
+        with(orderItemAddedEvent) {
+            orders[orderId]?.orderCart?.put(itemId, 1)
+        }
+    }
+    @StateTransitionFunc
+    fun deleteItemFromOrder(orderItemDeletedEvent: OrderItemDeletedEvent) {
+        with(orderItemDeletedEvent) {
+            orders[orderId]?.orderCart?.remove(itemId)
+        }
+    }
+    @StateTransitionFunc
+    fun setAmountInCart(orderItemAmountChangedEvent: OrderItemAmountChangedEvent) {
+        with(orderItemAmountChangedEvent) {
+            orders[orderId]?.orderCart?.set(itemId, newAmount)
+        }
+    }
+
     // -------------------ITEMS-------------------------
 
     @StateTransitionFunc
