@@ -2,33 +2,49 @@
 
 package shopDemo.orders.impl.entity
 
+import com.itmo.microservices.demo.common.exception.NotFoundException
+import com.itmo.microservices.demo.common.exception.ObjectAlreadyExistException
+import com.itmo.microservices.demo.common.exception.WrongValueException
 import ru.quipy.core.annotations.StateTransitionFunc
 import ru.quipy.domain.AggregateState
 import shopDemo.orders.api.*
 import shopDemo.orders.api.model.OrderRow
 import shopDemo.orders.api.model.OrderState
+import java.math.BigDecimal
 import java.util.*
 
 class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
-    private lateinit var itemManagerId: UUID;
+    private lateinit var itemManagerId: UUID
+    private lateinit var orders: Map<UUID, Order>
+    private lateinit var items: Map<UUID, Item>
+    private val creationTime = System.currentTimeMillis()
+
     override fun getId(): UUID = itemManagerId
-    private lateinit var orders: Map<UUID, Order>;
 
-    fun createNewOrder(id: UUID = UUID.randomUUID(), userId: UUID, products: Map<UUID, Int>): OrderCreatedEvent {
-        if (state != null)
-            throw IllegalStateException("Order is $state")
+    fun createNewOrder(userId: UUID, cart: Map<UUID, Int>, orderId: UUID = UUID.randomUUID()): OrderCreatedEvent {
+        //if user exists
+        if (orders.containsKey(orderId))
+            throw ObjectAlreadyExistException("Order with this id already exists")
 
-        if (products.isEmpty())
+//        if (curOrder.state != null)
+//            throw IllegalStateException("Order is $curOrder.state")
+
+        if (cart.isEmpty())
             throw IllegalArgumentException("Can't create empty order")
 
-        return OrderCreatedEvent(id, userId,
-            products.map { (productId, count) ->
+        for ((itemId, itemAmount) in cart) {
+            if (itemAmount < 0) throw WrongValueException("Item amount in order must not be negative!")
+            if (!items.containsKey(itemId)) throw NotFoundException("No item with such id $itemId")
+        }
+
+        return OrderCreatedEvent(orderId, userId,
+            cart.map { (productId, count) ->
                 OrderRow(UUID.randomUUID(), productId, count)
             }
         )
     }
 
-    fun addDeliveryAddress(address: String): DeliveryAddressAddedEvent {
+    fun addDeliveryAddress(orderId: UUID, address: String): DeliveryAddressAddedEvent {
         if (state != OrderState.InProcess)
             throw IllegalStateException("Order is $state")
 
@@ -116,19 +132,37 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
 
 }
 
-class Order {
-    private lateinit var orderId: UUID
-    private lateinit var userId: UUID
-    private var creationTime: Long = System.currentTimeMillis()
-    private var state: OrderState? = null
+class Order(_orderId: UUID, _userId: UUID) {
+    var orderId: UUID = _orderId
+    var userId: UUID = _userId
+    var creationTime: Long = System.currentTimeMillis()
+    var state: OrderState? = null
 
-    private var deliveryAddress: String? = null
-    private var paymentMethod: PaymentMethod? = null
-    private var deliveryDate: Date? = null
+    var deliveryAddress: String? = null
+    var paymentMethod: PaymentMethod? = null
+    var deliveryDate: Date? = null
 
-    private var orderRows: Map<UUID, OrderRow> = mapOf()
+    var orderRows: Map<UUID, OrderRow> = mapOf()
 
-    fun getId(): UUID = orderId
+//    fun getId(): UUID = orderId
+}
+
+class Item(_itemId: UUID, _name: String, _price: BigDecimal, _description: String? = null, _amountInStock: Int = 0) {
+    var itemId: UUID = _itemId
+    val creationTime: Long = System.currentTimeMillis()
+    var name: String = _name
+
+    var price: BigDecimal = _price
+        set(value) {
+            if (value > BigDecimal.ZERO) field = value else throw WrongValueException("Price must not be negative!")
+        }
+    var description: String? = _description
+    var amountInStock: Int = _amountInStock
+        set(value) {
+            if (value >= 0) field = value else throw WrongValueException("Amount in stock must not be negative!")
+        }
+
+//    fun getId(): UUID = orderId
 }
 
 enum class PaymentMethod {
