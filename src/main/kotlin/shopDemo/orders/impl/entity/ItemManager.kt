@@ -28,15 +28,25 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
     // -------------------ORDERS-------------------------
 
     @StateTransitionFunc
-    fun createNewOrder(orderCreatedEvent: OrderCreatedEvent) {
+    fun createNewOrder(
+        orderId: UUID,
+        userId: UUID,
+        orderCart: OrderCart
+    ): OrderCreatedEvent {
+        val orderCreatedEvent = OrderCreatedEvent(orderId, userId, orderCart)
         with(orderCreatedEvent) {
             orders.put(orderId, Order(orderId, userId, createdAt, orderCart))
         }
+        return orderCreatedEvent
     }
 
     @StateTransitionFunc
-    fun setOrderDeliveryTime(event: OrderDeliveryTimeAddedEvent) {
-        orders[event.orderId]?.deliveryDate = event.timeSlot
+    fun setOrderDeliveryTime(
+        orderId: UUID,
+        timeSlot: TimeSlot,
+    ): OrderDeliveryTimeAddedEvent {
+        orders[orderId]?.deliveryDate = timeSlot
+        return OrderDeliveryTimeAddedEvent(orderId, timeSlot)
     }
 
 //    @StateTransitionFunc
@@ -45,79 +55,122 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
 //    }
 
     @StateTransitionFunc
-    fun changeOrderState(orderStateChangedEvent: OrderStateChangedEvent) {
-        orders[orderStateChangedEvent.orderId]?.state = orderStateChangedEvent.newState
+    fun changeOrderState(
+        orderId: UUID,
+        newState: OrderState
+    ): OrderStateChangedEvent {
+        orders[orderId]?.state = newState
+        return OrderStateChangedEvent(orderId, newState)
     }
 
     @StateTransitionFunc
-    fun deleteOrder(orderDeletedEvent: OrderDeletedEvent) {
-        orders.remove(orderDeletedEvent.orderId)
+    fun deleteOrder(
+        orderId: UUID
+    ): OrderDeletedEvent {
+        orders.remove(orderId)
+        return OrderDeletedEvent(orderId)
     }
 
     @StateTransitionFunc
-    fun notifyAbandonedCart(cartAbandonedNotifyEvent: CartAbandonedNotifyEvent) {
-        // do nothing
+    fun notifyAbandonedCart(
+        orderId: UUID
+    ): CartAbandonedNotifyEvent {
+        return CartAbandonedNotifyEvent(orderId)
     }
 
     // -------------------OrderItems-------------------------
 
     @StateTransitionFunc
-    fun addItemToOrder(orderItemAddedEvent: OrderItemAddedEvent) {
-        with(orderItemAddedEvent) {
-            orders[orderId]?.orderCart?.put(itemId, 1)
-        }
+    fun addItemToOrder(
+        itemId: UUID,
+        orderId: UUID
+    ): OrderItemAddedEvent {
+        orders[orderId]?.orderCart?.put(itemId, 1)
+        return OrderItemAddedEvent(itemId, orderId)
     }
     @StateTransitionFunc
-    fun deleteItemFromOrder(orderItemDeletedEvent: OrderItemDeletedEvent) {
-        with(orderItemDeletedEvent) {
-            orders[orderId]?.orderCart?.remove(itemId)
-        }
+    fun deleteItemFromOrder(
+        itemId: UUID,
+        orderId: UUID
+    ): OrderItemDeletedEvent {
+        orders[orderId]?.orderCart?.remove(itemId)
+        return OrderItemDeletedEvent(itemId, orderId)
     }
     @StateTransitionFunc
-    fun setAmountInCart(orderItemAmountChangedEvent: OrderItemAmountChangedEvent) {
-        with(orderItemAmountChangedEvent) {
-            orders[orderId]?.orderCart?.set(itemId, newAmount)
-        }
+    fun setAmountInCart(
+        itemId: UUID,
+        newAmount: Int,
+        orderId: UUID
+    ): OrderItemAmountChangedEvent {
+        orders[orderId]?.orderCart?.set(itemId, newAmount)
+        return OrderItemAmountChangedEvent(itemId, newAmount, orderId)
     }
 
     // -------------------ITEMS-------------------------
 
     @StateTransitionFunc
-    fun createNewItem(itemCreatedEvent: ItemCreatedEvent) {
+    fun createNewItem(
+        itemId: UUID,
+        itemName: String,
+        price: BigDecimal,
+        description: String?,
+        amountInStock: Int
+    ): ItemCreatedEvent {
+        val itemCreatedEvent = ItemCreatedEvent(itemId, itemName, price, description, amountInStock)
         with(itemCreatedEvent) {
             items.put(itemId, Item(itemId, name, price, description, amountInStock))
         }
+        return itemCreatedEvent
     }
 
     @StateTransitionFunc
-    fun deleteItem(event: ItemDeletedEvent) {
-        items.remove(event.itemId)
+    fun deleteItem(
+        itemId: UUID
+    ): ItemDeletedEvent {
+        items.remove(itemId)
         for ((orderId, order) in orders) {
-            if (order.orderCart.containsKey(event.itemId)) {
-                order.orderCart.remove(event.itemId)
+            if (order.orderCart.containsKey(itemId)) {
+                order.orderCart.remove(itemId)
                 // TODO: notification
             }
         }
+        return ItemDeletedEvent(itemId)
     }
 
     @StateTransitionFunc
-    fun setItemName(event: ItemNameUpdatedEvent) {
-        items[event.itemId]?.name = event.newName
+    fun setItemName(
+        itemId: UUID,
+        newName: String,
+    ): ItemNameUpdatedEvent {
+        items[itemId]?.name = newName
+        return ItemNameUpdatedEvent(itemId, newName)
     }
 
     @StateTransitionFunc
-    fun setItemDescription(event: ItemDescriptionUpdatedEvent) {
-        items[event.itemId]?.description = event.newDescription
+    fun setItemDescription(
+        itemId: UUID,
+        newDescription: String?
+    ): ItemDescriptionUpdatedEvent {
+        items[itemId]?.description = newDescription
+        return ItemDescriptionUpdatedEvent(itemId, newDescription)
     }
 
     @StateTransitionFunc
-    fun setItemPrice(event: ItemPriceUpdatedEvent) {
-        items[event.itemId]?.price = event.newPrice
+    fun setItemPrice(
+        itemId: UUID,
+        newPrice: BigDecimal
+    ): ItemPriceUpdatedEvent {
+        items[itemId]?.price = newPrice
+        return ItemPriceUpdatedEvent(itemId, newPrice)
     }
 
     @StateTransitionFunc
-    fun setItemStockAmount(event: ItemStockAmountUpdatedEvent) {
-        items[event.itemId]?.amountInStock = event.newAmount
+    fun setItemStockAmount(
+        itemId: UUID,
+        newAmount: Int
+    ): ItemStockAmountUpdatedEvent {
+        items[itemId]?.amountInStock = newAmount
+        return ItemStockAmountUpdatedEvent(itemId, newAmount)
     }
 }
 
