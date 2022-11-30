@@ -23,8 +23,8 @@ class ItemManagerSubscriber(
                 itemManagersService.update(event.orderId) {
                     it.createNewOrder(
                             event.orderId,
-                            event.userId,
-                            event.orderCart
+                            event.orderCart,
+                            event.userId
                         )
                 }
             }
@@ -45,7 +45,7 @@ class ItemManagerSubscriber(
             }
             `when`(CartAbandonedNotifyEvent::class) { event ->
                 itemManagersService.update(event.orderId) {
-                    it.notifyAbandonedCart(event.orderId)
+                    it.notifyAbandonedCart(event.orderId, event.createdAt)
                 }
             }
             `when`(OrderItemAddedEvent::class) { event ->
