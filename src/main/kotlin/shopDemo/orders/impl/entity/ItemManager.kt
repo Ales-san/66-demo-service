@@ -28,25 +28,15 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
     // -------------------ORDERS-------------------------
 
     @StateTransitionFunc
-    fun createNewOrder(
-        orderId: UUID,
-        userId: UUID,
-        orderCart: OrderCart
-    ): OrderCreatedEvent {
-        val orderCreatedEvent = OrderCreatedEvent(orderId, userId, orderCart)
+    fun createNewOrder(orderCreatedEvent: OrderCreatedEvent) {
         with(orderCreatedEvent) {
             orders.put(orderId, Order(orderId, userId, createdAt, orderCart))
         }
-        return orderCreatedEvent
     }
 
     @StateTransitionFunc
-    fun setOrderDeliveryTime(
-        orderId: UUID,
-        timeSlot: TimeSlot,
-    ): OrderDeliveryTimeAddedEvent {
-        orders[orderId]?.deliveryDate = timeSlot
-        return OrderDeliveryTimeAddedEvent(orderId, timeSlot)
+    fun setOrderDeliveryTime(event: OrderDeliveryTimeAddedEvent) {
+        orders[event.orderId]?.deliveryDate = event.timeSlot
     }
 
 //    @StateTransitionFunc
@@ -55,123 +45,227 @@ class ItemManager : AggregateState<UUID, ItemManagerAggregate> {
 //    }
 
     @StateTransitionFunc
-    fun changeOrderState(
-        orderId: UUID,
-        newState: OrderState
-    ): OrderStateChangedEvent {
-        orders[orderId]?.state = newState
-        return OrderStateChangedEvent(orderId, newState)
+    fun changeOrderState(orderStateChangedEvent: OrderStateChangedEvent) {
+        orders[orderStateChangedEvent.orderId]?.state = orderStateChangedEvent.newState
     }
 
     @StateTransitionFunc
-    fun deleteOrder(
-        orderId: UUID
-    ): OrderDeletedEvent {
-        orders.remove(orderId)
-        return OrderDeletedEvent(orderId)
+    fun deleteOrder(orderDeletedEvent: OrderDeletedEvent) {
+        orders.remove(orderDeletedEvent.orderId)
     }
 
     @StateTransitionFunc
-    fun notifyAbandonedCart(
-        orderId: UUID
-    ): CartAbandonedNotifyEvent {
-        return CartAbandonedNotifyEvent(orderId)
+    fun notifyAbandonedCart(cartAbandonedNotifyEvent: CartAbandonedNotifyEvent) {
+        // do nothing
     }
 
     // -------------------OrderItems-------------------------
 
     @StateTransitionFunc
-    fun addItemToOrder(
-        itemId: UUID,
-        orderId: UUID
-    ): OrderItemAddedEvent {
-        orders[orderId]?.orderCart?.put(itemId, 1)
-        return OrderItemAddedEvent(itemId, orderId)
+    fun addItemToOrder(orderItemAddedEvent: OrderItemAddedEvent) {
+        with(orderItemAddedEvent) {
+            orders[orderId]?.orderCart?.put(itemId, 1)
+        }
     }
     @StateTransitionFunc
-    fun deleteItemFromOrder(
-        itemId: UUID,
-        orderId: UUID
-    ): OrderItemDeletedEvent {
-        orders[orderId]?.orderCart?.remove(itemId)
-        return OrderItemDeletedEvent(itemId, orderId)
+    fun deleteItemFromOrder(orderItemDeletedEvent: OrderItemDeletedEvent) {
+        with(orderItemDeletedEvent) {
+            orders[orderId]?.orderCart?.remove(itemId)
+        }
     }
     @StateTransitionFunc
-    fun setAmountInCart(
-        itemId: UUID,
-        newAmount: Int,
-        orderId: UUID
-    ): OrderItemAmountChangedEvent {
-        orders[orderId]?.orderCart?.set(itemId, newAmount)
-        return OrderItemAmountChangedEvent(itemId, newAmount, orderId)
+    fun setAmountInCart(orderItemAmountChangedEvent: OrderItemAmountChangedEvent) {
+        with(orderItemAmountChangedEvent) {
+            orders[orderId]?.orderCart?.set(itemId, newAmount)
+        }
     }
 
     // -------------------ITEMS-------------------------
 
     @StateTransitionFunc
-    fun createNewItem(
-        itemId: UUID,
-        itemName: String,
-        price: BigDecimal,
-        description: String?,
-        amountInStock: Int
-    ): ItemCreatedEvent {
-        val itemCreatedEvent = ItemCreatedEvent(itemId, itemName, price, description, amountInStock)
+    fun createNewItem(itemCreatedEvent: ItemCreatedEvent) {
         with(itemCreatedEvent) {
             items.put(itemId, Item(itemId, name, price, description, amountInStock))
         }
-        return itemCreatedEvent
     }
 
     @StateTransitionFunc
-    fun deleteItem(
-        itemId: UUID
-    ): ItemDeletedEvent {
-        items.remove(itemId)
+    fun deleteItem(event: ItemDeletedEvent) {
+        items.remove(event.itemId)
         for ((orderId, order) in orders) {
-            if (order.orderCart.containsKey(itemId)) {
-                order.orderCart.remove(itemId)
+            if (order.orderCart.containsKey(event.itemId)) {
+                order.orderCart.remove(event.itemId)
                 // TODO: notification
             }
         }
+    }
+
+    @StateTransitionFunc
+    fun setItemName(event: ItemNameUpdatedEvent) {
+        items[event.itemId]?.name = event.newName
+    }
+
+    @StateTransitionFunc
+    fun setItemDescription(event: ItemDescriptionUpdatedEvent) {
+        items[event.itemId]?.description = event.newDescription
+    }
+
+    @StateTransitionFunc
+    fun setItemPrice(event: ItemPriceUpdatedEvent) {
+        items[event.itemId]?.price = event.newPrice
+    }
+
+    @StateTransitionFunc
+    fun setItemStockAmount(event: ItemStockAmountUpdatedEvent) {
+        items[event.itemId]?.amountInStock = event.newAmount
+    }
+
+    fun createNewOrder(userId: UUID, cart: Map<UUID, Int>, orderId: UUID = UUID.randomUUID()): OrderCreatedEvent {
+        //TODO: if user exists
+        if (orders.containsKey(orderId))
+            throw ObjectAlreadyExistException("Order with this id already exists")
+
+        if (cart.isEmpty())
+            throw IllegalArgumentException("Can't create empty order")
+
+        for ((itemId, itemAmount) in cart) {
+            if (itemAmount < 0) throw WrongValueException("Item amount in order must not be negative!")
+            if (!items.containsKey(itemId)) throw NotFoundException("No item with such id $itemId")
+        }
+
+        return OrderCreatedEvent(orderId, userId, cart.toMutableMap())
+    }
+    fun setOrderDeliveryTime(orderId: UUID, timeSlot: TimeSlot): OrderDeliveryTimeAddedEvent {
+        checkOrderState(orderId, OrderState.BOOKED)
+        return OrderDeliveryTimeAddedEvent(orderId, timeSlot)
+    }
+
+    private fun getPossibleStates(orderId: UUID) = orders[orderId]?.state.let {
+        when (it) {
+            null -> listOf(OrderState.COLLECTING)
+            OrderState.COLLECTING -> listOf(OrderState.BOOKED, OrderState.DISCARDED)
+            OrderState.BOOKED -> listOf(OrderState.COLLECTING, OrderState.PAID)
+            OrderState.PAID -> listOf(OrderState.SHIPPING, OrderState.REFUND)
+            OrderState.SHIPPING -> listOf(OrderState.COMPLETED, OrderState.REFUND)
+            OrderState.COMPLETED -> listOf()
+            OrderState.DISCARDED -> listOf()
+            OrderState.REFUND -> listOf()
+        }
+    }
+
+    fun changeOrderState(orderId: UUID, newState: OrderState): OrderStateChangedEvent {
+        if (newState !in getPossibleStates(orderId))
+            throw IllegalStateException("Can't change state from ${orders[orderId]?.state} to $newState")
+
+        if (newState == OrderState.PAID) {
+//            deliveryAddress ?: throw IllegalStateException("Can't process order without address")
+            orders[orderId]?.deliveryDate ?: throw IllegalStateException("Can't process order without date")
+//            orders[orderId]?.paymentMethod ?: throw IllegalStateException("Can't process order without payment method")
+        }
+
+        return OrderStateChangedEvent(orderId, newState)
+    }
+
+    fun deleteOrder(orderId: UUID): OrderDeletedEvent {
+        checkOrderIdExistsThrowable(orderId)
+        return OrderDeletedEvent(orderId)
+    }
+
+    private fun checkOrderState(orderId: UUID, state: OrderState) {
+        if (orders[orderId]?.state != state)
+            throw IllegalStateException("Wrong state of order. Order state required: ${state}, state ${orders[orderId]?.state} was found")
+
+    }
+
+    fun notifyAbandonedCart(orderId: UUID, time: Long): CartAbandonedNotifyEvent {
+        // updateTime
+        checkOrderIdExistsThrowable(orderId)
+        // TODO: check enough time passed
+        if (orders[orderId]?.state != OrderState.COLLECTING)
+            throw IllegalStateException("Can't notify about abandoned cart, because order is in state ${orders[orderId]?.state}")
+
+        return CartAbandonedNotifyEvent(orderId)
+    }
+
+    // -------------------OrderItems-------------------------
+    fun addItemToOrder(itemId: UUID, orderId: UUID): OrderItemAddedEvent {
+        checkOrderIdExistsThrowable(orderId)
+        checkItemIdExistsThrowable(itemId)
+        if (orders[orderId]?.orderCart?.containsKey(itemId) == true)
+            setAmountInCart(itemId, orders[orderId]?.orderCart!![itemId]!! + 1, orderId)
+        return OrderItemAddedEvent(itemId, orderId)
+    }
+
+    fun deleteItemFromOrder(itemId: UUID, orderId: UUID): OrderItemDeletedEvent {
+        checkOrderIdExistsThrowable(orderId)
+        checkItemIdExistsThrowable(itemId)
+        if (orders[orderId]?.orderCart?.containsKey(itemId) != true)
+            throw IllegalStateException("Can't delete item with id $itemId from order with id $orderId, because item is not in the cart")
+
+        return OrderItemDeletedEvent(itemId, orderId)
+    }
+
+    fun setAmountInCart(itemId: UUID, newAmount: Int, orderId: UUID): OrderItemAmountChangedEvent {
+        checkOrderIdExistsThrowable(orderId)
+        checkItemIdExistsThrowable(itemId)
+        if (orders[orderId]?.orderCart?.containsKey(itemId) != true)
+            throw IllegalStateException("Can't delete item with id $itemId from order with id $orderId, because item is not in the cart")
+
+        return OrderItemAmountChangedEvent(itemId, newAmount, orderId)
+    }
+
+    private fun checkOrderIdExistsThrowable(orderId: UUID) {
+        if (!orders.containsKey(orderId)) throw NotFoundException("No order with such id $orderId ")
+    }
+
+    // -------------------ITEMS-------------------------
+    fun createNewItem(
+        itemId: UUID = UUID.randomUUID(),
+        name: String,
+        price: BigDecimal,
+        description: String? = null,
+        amountInStock: Int,
+    ): ItemCreatedEvent {
+        if (items.containsKey(itemId))
+            throw ObjectAlreadyExistException("Item with this id $itemId already exists")
+
+        if(price < BigDecimal.ZERO) throw WrongValueException("Price must not be negative!")
+        if(amountInStock < 0) throw WrongValueException("Amount in stock must not be negative!")
+
+        return ItemCreatedEvent(itemId, name, price, description, amountInStock)
+    }
+
+    fun deleteItem(itemId: UUID): ItemDeletedEvent {
+        checkItemIdExistsThrowable(itemId)
         return ItemDeletedEvent(itemId)
     }
 
-    @StateTransitionFunc
-    fun setItemName(
-        itemId: UUID,
-        newName: String,
-    ): ItemNameUpdatedEvent {
-        items[itemId]?.name = newName
+    fun setItemName(itemId: UUID, newName: String): ItemNameUpdatedEvent {
+        checkItemIdExistsThrowable(itemId)
+        if (newName.isBlank()) throw WrongValueException("Name of item must not be empty!")
         return ItemNameUpdatedEvent(itemId, newName)
     }
 
-    @StateTransitionFunc
-    fun setItemDescription(
-        itemId: UUID,
-        newDescription: String?
-    ): ItemDescriptionUpdatedEvent {
-        items[itemId]?.description = newDescription
+    fun setItemDescription(itemId: UUID, newDescription: String?): ItemDescriptionUpdatedEvent {
+        checkItemIdExistsThrowable(itemId)
         return ItemDescriptionUpdatedEvent(itemId, newDescription)
     }
 
-    @StateTransitionFunc
-    fun setItemPrice(
-        itemId: UUID,
-        newPrice: BigDecimal
-    ): ItemPriceUpdatedEvent {
-        items[itemId]?.price = newPrice
+    fun setItemPrice(itemId: UUID, newPrice: BigDecimal): ItemPriceUpdatedEvent {
+        checkItemIdExistsThrowable(itemId)
+        if (newPrice < BigDecimal.ZERO) throw WrongValueException("Price of item must not be negative!")
         return ItemPriceUpdatedEvent(itemId, newPrice)
     }
-
-    @StateTransitionFunc
-    fun setItemStockAmount(
-        itemId: UUID,
-        newAmount: Int
-    ): ItemStockAmountUpdatedEvent {
-        items[itemId]?.amountInStock = newAmount
+    fun setItemStockAmount(itemId: UUID, newAmount: Int): ItemStockAmountUpdatedEvent {
+        checkItemIdExistsThrowable(itemId)
+        if (newAmount < 0) throw WrongValueException("Amount of item in stock must not be negative!")
         return ItemStockAmountUpdatedEvent(itemId, newAmount)
     }
+
+    private fun checkItemIdExistsThrowable(itemId: UUID) {
+        if (!items.containsKey(itemId)) throw NotFoundException("No item with such id $itemId ")
+    }
+
 }
 
 class Order(_orderId: UUID, _userId: UUID, _creationTime: Long, _orderCart: OrderCart) {
@@ -220,11 +314,3 @@ class Item(_itemId: UUID, _name: String, _price: BigDecimal, _description: Strin
         }
 
 }
-
-//enum class PaymentMethod {
-//    Cash,
-//    Card
-//}
-
-
-
