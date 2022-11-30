@@ -6,9 +6,8 @@ import ru.quipy.core.annotations.DomainEvent
 import ru.quipy.domain.Event
 import shopDemo.orders.api.model.OrderCart
 import shopDemo.orders.api.model.OrderState
-import shopDemo.orders.impl.entity.ItemManagerAggregate
-import java.math.BigDecimal
 import shopDemo.orders.impl.entity.*
+import java.math.BigDecimal
 import java.util.*
 
 const val ORDER_CREATED = "ORDER_CREATED_EVENT"
@@ -75,6 +74,7 @@ class CartAbandonedNotifyEvent(
     name = CART_ABANDONED_NOTIFY,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = ITEM_TO_ORDER_ADDED)
 class OrderItemAddedEvent(
     val itemId: UUID,
@@ -83,6 +83,7 @@ class OrderItemAddedEvent(
     name = ITEM_TO_ORDER_ADDED,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = ITEM_FROM_ORDER_DELETED)
 class OrderItemDeletedEvent(
     val itemId: UUID,
@@ -91,6 +92,7 @@ class OrderItemDeletedEvent(
     name = ITEM_FROM_ORDER_DELETED,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = SET_AMOUNT_IN_CART)
 class OrderItemAmountChangedEvent(
     val itemId: UUID,
@@ -131,6 +133,7 @@ class ItemNameUpdatedEvent(
     name = ITEM_NAME_UPDATED,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = ITEM_DESCRIPTION_UPDATED)
 class ItemDescriptionUpdatedEvent(
     val itemId: UUID,
@@ -139,6 +142,7 @@ class ItemDescriptionUpdatedEvent(
     name = ITEM_DESCRIPTION_UPDATED,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = ITEM_PRICE_UPDATED)
 class ItemPriceUpdatedEvent(
     val itemId: UUID,
@@ -147,6 +151,7 @@ class ItemPriceUpdatedEvent(
     name = ITEM_PRICE_UPDATED,
     createdAt = System.currentTimeMillis(),
 )
+
 @DomainEvent(name = ITEM_STOCK_AMOUNT_UPDATED)
 class ItemStockAmountUpdatedEvent(
     val itemId: UUID,
